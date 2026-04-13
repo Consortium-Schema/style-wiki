@@ -1,4 +1,4 @@
-## 1. 录入规范 (N tation Syntax)
+## 1. 录入规范 (N tati n Syntax)
 >处理复杂系统数据的正确姿势永远是保持输入端是Clean Text，通过逻辑层生成Rich Data。基于此，人力扁平文本的录入做法是必要的，避免了在录入时写复杂的嵌套JSON，实现录入成本最小化与数据价值最大化。
 ### 1.1 基础人员录入
 使用无序列表配合特定的括号标记：
@@ -13,14 +13,13 @@
 ---
 ## 1.2 特殊标记（Speical Modifiers）
 使用以下符号映射 uncertain、former 和 succession 等复杂字段,留白视作公司(Anchor Injection)
-rmal mode
-
 | 符号 |语义  | 录入示例 | 对应JSON字段
 | :--- | :--- | :--- | :--- |
-| ？   | 不确定性 | 夏目公一朗（KADOKAWA？）| person_uncertain, company_uncertain
+| ？   | 不确定性 | 夏目公一朗（KADOKAWA？）| person_uncertain, company_uncertain, former_company_uncertain
 | <-  | 跳槽来源 | 安倍孝二（GOOD Smile China）<-bilibili | former_company
 | ->  | 继承链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」|succession: [CreditEntry]
 | \|  | 隶属分隔 | 大西恒平（集英社\|周刊少年JUMP编辑部）|company, department
+| # | 消歧义   （非必要不使用）     | 鈴木健太#Aniplex（Aniplex)  | person_id
 
 ---
 ## 2.基础结构
@@ -39,22 +38,68 @@ rmal mode
 * 格式：* 姓名 ( 公司 | 部门 )
 * 示例：* 川窪慎太郎 ( 講談社 | 週刊少年MAGAZINE編輯部 )
 ---
+
 ### 确定性标记 ?
-? 是一个多态修饰符，它会根据放置的位置，自动在JSON中生成对应的uncertain字段。
+ ? 是一个多态修饰符，它会根据放置的位置，自动在JSON中生成对应的uncertain字段。
 * 人员不确定：* 姓名? ( 公司 )
 * 公司不确定：* 姓名 ( 公司 )? 或 * 姓名 ( 公司? )
 *  跳槽来源不确定：* 姓名 ( 公司 ) ?<- 前公司
 ---
 ### 跳槽/来源溯源 <-
-用于记录人才的流动背景，这对于分析CareerEntry非常重要。
+##### 用于记录人才的流动背景，这对于分析CareerEntry非常重要。
 * 语法：* 姓名 ( 当前公司 ) <- 来源公司
 * 示例：* 安倍孝二 ( GSC ) <- bilibili
 ---
 ###  继承链与集数映射 -> 与 「」
-这是最强大的功能，用于处理中途换人或特定集数职位的变动。
+##### 这是最强大的功能，用于处理中途换人或特定集数职位的变动。
 
 ---
-## 2.1 实战案例预览 (Case Study)
+### 消歧义标签 \#
+##### 用于处理姓名重合与Nick Name等person字段的极端情况
+* 语法：* 姓名#所属公司（公司）或* 假名/马甲#真名（公司）
+* 示例: *中山雅弘#武士道（武士道）或*Yui Lin#林韋菱（bilibili）
+---
+## 2.1.高效录入:归一化处理
+* >你在录入时不应该担心的事情。
+
+#### 全/半角符号透明切换
+脚本会自动将全角符号映射为半角。你可以完全根据输入法状态随心所欲地输入：
+* 括号：( ) 与（ ）效果一致。
+* 职位：< >、＜ ＞、《 》、〈 〉效果一致。
+* 分隔符：|与｜、,与，、: 与 ：效果一致。
+
+#### 职位标签空格免疫
+在输入职位标签时，标签内的空格会被自动剔除：
+*  < 製作 委員會 > 会自动识别为 <製作委員會>。
+*  这允许你在编辑 MD 时为了美观故意留白，而不影响后端解析。
+
+ #### 元数据区括号自由
+在作品标题下的製作委員会声明区：
+* 你可以随意换行缩进来兼具可读性 例:
+```
+「黒猫と魔女の教室」製作委員会                                      （
+    電通, 
+    Good Smile Company, 
+    CBC電視台, Ultra Super Pictures, 
+    大一商會  
+
+
+                                                                                                )
+```
+* 即使名单过长导致换行，只要括号未闭合，脚本会合并下一行，直到括号闭合。
+
+---
+## 2.2进阶录入技巧 (Tips)
+### 处理马甲公司与多重身份
+将第一个括号的公司解析为主Company字段，后续所有括号内公司录入affiliations字段。
+* 输入：*高木隆行 (Christmas Holy) (Global Solutions)
+* 解析：主字段company是Christmas Holy,而Global Solutions会出现在affiliations的字段列表中。
+### 日期与逻辑分段
+* 使用YYYYMM（如 202604）作为独立行，定义之后所有作品的季度归属。沿用到下个日期定义前（如 202607），你不需要为每个作品都写上日期
+* 在不同的职位块（如<制片人>到<副制片人>）之间保留一个空行，有助于脚本清晰地重置 current_role状态。
+
+---
+## 3. 实战案例预览 (Case Study)
 
 >仅作本页面理解参考，与真实表记存在出入。
 
@@ -77,10 +122,11 @@ rmal mode
 * 古川慎 ( 講談社 )
 * 今泉昌也 ( CBC電視台 )
 * 里見哲朗 ( Ultra Super Pictures )
-* 宮本和紀 ( 大一商會 )
+* 宮本和紀 ( 大一商會 )( 大二商會  )( 大三商會  )
 
 < 製片人 >
-* 菊池瑠梨子 ( 電通 )
+* 菊池瑠梨子#电通 ( 電通 )
+* 菊池瑠梨子 #Good Smile Company （Good Smile Company）
 * 冨田功一郎 ( Good Smile Company )
 * 塩谷佳之 ( 講談社 )
 * 柴田知宏 ( CBC電視台 )
@@ -145,8 +191,8 @@ rmal mode
       "year": "2026",
       "season": "04",
       "title": "黒猫と魔女の教室",
-      "committee_name": "「黒猫と魔女の教室」製作委員会",
-      "production_model": "製作委員會"
+      "production_model": "製作委員會",
+      "committee_name": "「黒猫と魔女の教室」製作委員会"
     },
     "committee": [
       {
@@ -191,8 +237,8 @@ rmal mode
       {
         "role": "企劃",
         "episodes": "all",
-        "company_uncertain": true,
         "company": "Good Smile Company",
+        "company_uncertain": true,
         "person": "宇佐義大"
       },
       {
@@ -263,13 +309,29 @@ rmal mode
         "role": "執行製片人",
         "episodes": "all",
         "company": "大一商會",
+        "affiliations": [
+          {
+            "company": "大二商會"
+          },
+          {
+            "company": "大三商會"
+          }
+        ],
         "person": "宮本和紀"
       },
       {
         "role": "製片人",
         "episodes": "all",
         "company": "電通",
-        "person": "菊池瑠梨子"
+        "person": "菊池瑠梨子",
+        "person_id": "电通"
+      },
+      {
+        "role": "製片人",
+        "episodes": "all",
+        "company": "Good Smile Company",
+        "person": "菊池瑠梨子",
+        "person_id": "Good Smile Company"
       },
       {
         "role": "製片人",
