@@ -1,4 +1,4 @@
-## 1. 录入规范 (N tati n Syntax)
+## 1. 录入规范 (Ntation Syntax)
 >处理复杂系统数据的正确姿势永远是保持输入端是Clean Text，通过逻辑层生成Rich Data。基于此，人力扁平文本的录入做法是必要的，避免了在录入时写复杂的嵌套JSON，实现录入成本最小化与数据价值最大化。
 ### 1.1 基础人员录入
 使用无序列表配合特定的括号标记：
@@ -16,10 +16,10 @@
 | 符号 |语义  | 录入示例 | 对应JSON字段
 | :--- | :--- | :--- | :--- |
 | ？   | 不确定性 | 夏目公一朗（KADOKAWA？）| person_uncertain, company_uncertain, former_company_uncertain
-| <-  | 跳槽来源 | 安倍孝二（GOOD Smile China）<-bilibili | former_company
-| ->  | 继承链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」|succession: [CreditEntry]
-| \|  | 隶属分隔 | 大西恒平（集英社\|周刊少年JUMP编辑部）|company, department
-| # | 消歧义   （非必要不使用）     | 鈴木健太#Aniplex（Aniplex)  | person_id
+| <-   | 跳槽来源 | 安倍孝二（GOOD Smile China）<-bilibili | former_company
+| ->   | 继承链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」|succession: [CreditEntry]
+| \|   | 隶属分隔 | 大西恒平（集英社\|周刊少年JUMP编辑部）|company, department
+| #    | 消歧义（高录入成本）（非必要不使用）| 鈴木健太#org:Aniplex（Aniplex)或アリエル・リー#id:Ariel Li（Crunchyroll）| person_id
 
 ---
 ## 2.基础结构
@@ -34,7 +34,7 @@
 ---
 ### 核心解析语法 (Credit Entry)
 ##### 每一行以 * 开头的条目都是一个证据节点。通过符号映射，你可以表达极其复杂的权属关系：
-* 基础归属与部门划分 ( | )使用半角括号标记机构。如果涉及具体部门，使用 | 分隔。
+* 基础归属与部门划分 ( | )使用括号标记机构。如果涉及具体部门，使用 | 分隔。
 * 格式：* 姓名 ( 公司 | 部门 )
 * 示例：* 川窪慎太郎 ( 講談社 | 週刊少年MAGAZINE編輯部 )
 ---
@@ -55,12 +55,15 @@
 
 ---
 ### 消歧义标签 \#
-##### 用于处理姓名重合与Nick Name等person字段的极端情况
-* 语法：* 姓名#所属公司（公司）或* 假名/马甲#真名（公司）
-* 示例: *中山雅弘#武士道（武士道）或*Yui Lin#林韋菱（bilibili）
+##### 用于处理姓名重合与Nick Name等person字段的极端情况。
+|录入场景|录入格式|清洗场景|结果
+| :--- | :--- | :--- | :--- |
+|重名区分|鈴木健太#org：MBS|组合键：人名+org:MBS|独立统计
+|别名/真名|Yui Lin#id：林韋菱|唯一键: id:林韋菱|强聚合
+
 ---
 ## 2.1.高效录入:归一化处理
-* >你在录入时不应该担心的事情。
+* >你在录入时无需担心的事情。
 
 #### 全/半角符号透明切换
 脚本会自动将全角符号映射为半角。你可以完全根据输入法状态随心所欲地输入：
@@ -125,8 +128,8 @@
 * 宮本和紀 ( 大一商會 )( 大二商會  )( 大三商會  )
 
 < 製片人 >
-* 菊池瑠梨子#电通 ( 電通 )
-* 菊池瑠梨子 #Good Smile Company （Good Smile Company）
+* 菊池瑠梨子 ( 電通 )
+* 菊池瑠梨子 #org:Good Smile Company （Good Smile Company）
 * 冨田功一郎 ( Good Smile Company )
 * 塩谷佳之 ( 講談社 )
 * 柴田知宏 ( CBC電視台 )
@@ -323,15 +326,14 @@
         "role": "製片人",
         "episodes": "all",
         "company": "電通",
-        "person": "菊池瑠梨子",
-        "person_id": "电通"
+        "person": "菊池瑠梨子"
       },
       {
         "role": "製片人",
         "episodes": "all",
         "company": "Good Smile Company",
         "person": "菊池瑠梨子",
-        "person_id": "Good Smile Company"
+        "person_id": "org:Good Smile Company"
       },
       {
         "role": "製片人",
