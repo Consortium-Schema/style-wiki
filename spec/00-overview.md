@@ -146,10 +146,12 @@ Credit 条目只记录 credit 上**实际写了什么**，不做推断。
 | **original_type / original_sources** | 原作类型与来源（`original_company`、可选 `original_label`） |
 | **committee_name** | 委员会原始日文名（仅 `製作委員會` 模式输出） |
 | **production_mode** | 制作模式枚举：`solo` / `製作委員會` / `製作/共同製作` / `Netflix Mode` |
-| **produced_by** | Produced by 列表（由同名 role 段派生） |
+| **produced_by** | `Produced by X,Y` 指令行产生的数组 |
+| **co-produced_with** | `Co-produced with X` 指令行产生的字符串 |
+| **unlimited_produce_by** | `UNLIMITED PRODUCE by X` 指令行产生的字符串 |
+| **in_association_with** | `//In association with X` 注释行产生的字符串 |
 | **original_oncommittee** | 原作公司是否在 `committee` 中，仅委員會 模式且为 `true` 时输出 |
 | **original_onseisaku** | 原作公司是否在 `seisaku_company` 中，仅非委員會 模式且为 `true` 时输出 |
-| **in_association_with** | 协作方（由 `//In association with X` 注释行触发） |
 
 ### 独立的参照实体
 
@@ -181,8 +183,8 @@ Work
 │   └── episodes            登场集数
 └── metadata（辅助）
     ├── title, type, year, season, release_date ...
-    ├── production, original_sources, produced_by ...
-    ├── in_association_with ...
+    ├── production, original_sources ...
+    ├── produced_by, co-produced_with, unlimited_produce_by, in_association_with ...
     └── production_mode, committee_name, original_oncommittee / original_onseisaku ...
 
 Company ←→ Company（改名 / 合并 / 母子公司）

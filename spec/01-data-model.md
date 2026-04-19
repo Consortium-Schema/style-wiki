@@ -50,6 +50,8 @@
 | `original_oncommittee` | 原作方是否在 `committee` 内，仅 `製作委員會` 模式且为 `true` 时输出 |
 | `original_onseisaku` | 原作方是否在 `seisaku_company` 内，仅非委員會 模式且为 `true` 时输出 |
 | `in_association_with` | 协作方（由 `//In association with X` 注释行触发，值为 `X`） |
+| `co-produced_with` | 共同制作方（由 `*committee_name` 后的 `Co-produced with X` 行触发） |
+| `unlimited_produce_by` | UNLIMITED PRODUCE 委托方（由 role 段下的 `UNLIMITED PRODUCE by X` 行触发） |
 
 ---
 
@@ -147,11 +149,11 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 | 字段 | 含义 |
 |---|---|
 | `role` | 当前角色（由最近一个 `<role>` 行决定） |
-| `person` | 人名 |
-| `person_realname` | 人员本名（例如罗马字本名） |
+| `person` | 人名（`／` / `/` 分隔时取左侧） |
+| `person_realname` | 人员本名（`／` / `/` 分隔时取右侧，如 `ワンミシェル／Michelle Wang`） |
 | `company` | 公司 |
-| `parent_company` | 母公司（当解析器可以关联到时输出） |
-| `department` | 部门，数组（例如 `["ULTRA JUMP编辑部", "第4编辑部企画室"]`） |
+| `parent_company` | 母公司（由 `@` 语法产生，如 `（HERO'S）@木下Group`） |
+| `department` | 部门。单部门为字符串（如 `"周刊少年JUMP编辑部"`）；多部门为字符串数组（如 `["ULTRA JUMP编辑部", "第4编辑部企画室"]`） |
 | `episodes` | 参与集数。默认为 `"all"` |
 | `person_uncertain` | 人名不确定（来自 `?`） |
 | `company_uncertain` | 公司不确定（来自 `？` / `?`） |
@@ -199,8 +201,8 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 *  重名隔离(Discriminator-Second)：如果person_id以org:开头（或纯数字），则将person+person_id组合成一个唯一主键。
 *  默认处理:如果没有ID，则以person署名为准。
 #### 括号优先级：
-* 姓名(A) →company:A
-* 姓名(A)(B)→company:A,affiliations:[{company: A}, {company: B}] (A为Primary)
+* 姓名（A） → `company: A`
+* 姓名（A）（B） → `company: A, affiliations: [{company: B}]`（A 为 Primary，其后括号依次进入 `affiliations[]`）
 
 ### 实现建议
 

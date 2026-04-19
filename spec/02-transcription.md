@@ -79,16 +79,27 @@ credit行
 ### 3.3 符号映射表
 
 **普通 credit 行直接写在 `<role>` 段下，不加前缀；`*` 前缀保留给特殊节点（见 §4.x）。通过下列符号映射可表达复杂的权属关系。**
-| 符号 |语义  | 录入示例
-| :--- | :--- | :--- |
-| ？   | 不确定性 | 夏目公一朗（KADOKAWA？）
-| <-   | 跳槽来源 | 安倍孝二（GOOD Smile China）<-bilibili
-| 「」 | 集数赋予 |  沢辺伸政（小学馆）「1-13话」
-| ->   | 后继链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」
-| \|   | 隶属分隔 | 大西恒平（集英社\|周刊少年JUMP编辑部）
-| #    | 消歧义| 鈴木健太#org:Aniplex（Aniplex)或アリエル・リー#id:Ariel Li（Crunchyroll）
+| 符号 |语义  | 录入示例 | 对应输出字段 |
+| :--- | :--- | :--- | :--- |
+| ？ / ? | 不确定性 | 夏目公一朗（KADOKAWA？） | `company_uncertain` / `person_uncertain` |
+| `<-`   | 跳槽来源 | 安倍孝二（GOOD Smile China）<-bilibili | `former_company` |
+| `?<-`  | 跳槽来源不确定 | 岡﨑剛之（CBC電視台）?<-bilibili | `former_company_uncertain` |
+| 「」   | 集数赋予 | 沢辺伸政（小学馆）「1-13话」 | `episodes` |
+| `->`   | 后继链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」 | _（解析器当前未输出，待定案）_ |
+| `\|`   | 隶属分隔（部门） | 大西恒平（集英社\|周刊少年JUMP编辑部） | `department` |
+| `@`    | 母公司归属 | 木下直哉（HERO'S）@木下Group；小野朗（SPEEDSTAR RECORDS@JVC建伍胜利娱乐） | `parent_company` |
+| `／` / `/` | 人员本名分隔 | ワンミシェル／Michelle Wang（KADOKAWA） | `person_realname` |
+| `#`    | 消歧义 | 鈴木健太#org:Aniplex（Aniplex）；アリエル・リー#id:Ariel Li（Crunchyroll） | _（解析器当前未输出，待定案）_ |
 
-> 当前解析器的 04.json 输出中尚未包含 `succession`（后继链）、`person_id`（消歧义）字段——`->` 与 `#` 属于录入层面已支持但输出映射尚待定案的特性。
+> `->` 后继链、`#` 消歧义在当前解析器（见 04-new.json）输出中尚未生成对应字段，属于录入层面已支持但输出映射待定案的特性。
+
+**`@` 的两种位置**：
+- 放在括号外：`person（company）@parent_company`
+- 放在括号内：`person（company@parent_company）`
+
+两者语义等价，均生成 `company` + `parent_company`。
+
+**`／` / `/` 分隔的方向**：左侧为在 credit 中出现的署名（`person`），右侧为本名 / 罗马字原名（`person_realname`）。例如 `赤崎薫／赤﨑薫（TBS）` 会输出 `person="赤崎薫"`、`person_realname="赤﨑薫"`。
 
 ---
 
@@ -275,6 +286,8 @@ A -> B -> C
 
 ##  注入系统
 
+> **现状提示**：当前样本（04-new.asch）中并未实际出现 `$` 注入行，本节规则属于设计规范层面。若需使用，以解析器实际输出为准。
+
 ASCH 的注入系统使用 `$` 分隔，允许在任意节点追加结构化字段。
 
 ###  基本语法
@@ -322,24 +335,41 @@ $command:[recommand:"这是嵌套注入",emoji:"👿“]
 
 ---
 
-##  注释行
+##  英文指令行（Directive Lines）
 
-以 `//` 开头的行为**注释行**，用于在当前 role 段下追加补充信息。
+ASCH 支持若干英文指令行，会被解析器识别并提升为 metadata 字段。按出现位置分为**委员会标题后指令**与**role 段内指令**。
 
-### 基本语法
+### 1. 委员会标题后指令（`*committee_name` 行之后、首个 `<role>` 行之前）
+
+| 录入 | 输出 metadata 字段 | 值形态 |
+| :--- | :--- | :--- |
+| `Produced by X,Y,Z` | `produced_by` | 字符串数组（按 `,` 拆分） |
+| `Co-produced with X` | `co-produced_with` | 字符串 |
+
+示例：
 
 ```text
-//In association with Netflix
+*ジョジョの奇妙な冒険SBR製作委員会
+Produced by Warner Bros. Japan,集英社
+<企画>
+...
 ```
 
-### 解析行为
+```text
+*日本三國製作委員会
+Co-produced with Amazon MGM Studios
+<製作总指挥>
+...
+```
 
-注释行会产生两处输出：
+### 2. role 段内指令
 
-1. 若注释文本匹配 `In association with X`，则向作品级 metadata 写入 `in_association_with: "X"`；
-2. 在当前 role 下生成一条 CreditEntry：`{ "role": <当前 role>, "episodes": "all", "tips": <注释原文> }`。
+| 录入 | 输出 metadata 字段 | 额外生成的 CreditEntry |
+| :--- | :--- | :--- |
+| `UNLIMITED PRODUCE by X` | `unlimited_produce_by = X` | `{ role, episodes:"all", person: <原行>, unverified: true }` |
+| `//In association with X` | `in_association_with = X` | `{ role, episodes:"all", tips: <注释原文> }` |
 
-示例（ASCH）：
+示例（`//` 注释行）：
 
 ```text
 <原作协力>
@@ -361,7 +391,25 @@ $command:[recommand:"这是嵌套注入",emoji:"👿“]
 ]
 ```
 
-> 早期版本（04.asch）曾以 `$PS:` 注入承担此功能（例如 `$PS:In association with Netflix`）。新版已改为 `//` 注释行语法；原 `$PS:` 写法保留的话解析器未必会生成 `in_association_with` / `tips` 字段，请以新语法录入。
+示例（`UNLIMITED PRODUCE by`）：
+
+```text
+<企画Produce>
+UNLIMITED PRODUCE by TMS
+<製作>
+竹崎忠（TMS Entertainment）
+```
+
+对应输出片段：
+
+```json
+"metadata": { "unlimited_produce_by": "TMS", ... },
+"CreditEntry": [
+  { "role": "企画Produce", "episodes": "all", "person": "UNLIMITED PRODUCE by TMS", "unverified": true }
+]
+```
+
+> 早期版本（04.asch）曾以 `$PS:` 注入承担「In association with」的语义（例如 `$PS:In association with Netflix`）。新版已改为 `//` 注释行语法；原 `$PS:` 写法保留的话解析器不会生成 `in_association_with` / `tips` 字段，请以新语法录入。
 
 ---
 
