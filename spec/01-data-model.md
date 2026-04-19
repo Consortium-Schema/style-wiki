@@ -13,11 +13,10 @@
 一个 ASCH 文本最终通常会解析为多个作品条目。每个作品条目包含以下逻辑区域：
 
 - `metadata`：作品元数据
-- `committee` 或 `seisaku_company`：委员会 / 制作相关公司列表
+- `seisaku_company`：制作公司 / 委员会成员公司列表
 - `CreditEntry`：人员 credit 列表
 
-当 `production_mode = "製作委員会"` 时，使用字段名 `committee`。
-当 `production_mode != "製作委員会"` 时，使用字段名 `seisaku_company`。
+无论 `production_mode` 取何值（`solo` / `製作委員會` / `製作/共同製作` / `Netflix Mode`），委员会 / 制作公司成员都统一输出到 `seisaku_company`。`production_mode` 仅影响伴随的元数据字段（例如 `committee_name` 是否出现）。
 
 
 
@@ -27,96 +26,84 @@
 
 | 字段 | 含义 |
 |---|---|
-| `year` | 年份 |
-| `season` | 季节/月份 |
+| `year` | 年份（字符串，例如 `"2026"`） |
+| `season` | 季节/月份（字符串，例如 `"04"`） |
 | `release_date` | 发行日期（电影/特殊情况） |
 | `title` | 作品标题 |
-| `type` | 作品类型。默认为1（TV） |
-| `original_type` | 原作类型列表。默认为m（漫画）|
-| `production_mode` | 制作模式。默认为b（製作委員会）|
-| `association_netflix` | Netflix 关联标记 |
-| `unit_duration` | 单集时长 |
+| `type` | 作品类型。默认为 `TV` |
+| `original_type` | 原作类型列表（数组），例如 `["漫画"]`。默认 `["漫画"]` |
+| `production_mode` | 制作模式。枚举值：`solo` / `製作委員會` / `製作/共同製作` / `Netflix Mode`。默认 `製作委員會` |
+| `unit_duration` | 单集时长，例如 `"24min"` |
 | `episodes_count` | 集数 |
-| `total_duration` | 总时长 |
-| `committee_name` | 委员会名称（仅 b 模式） |
-| `production`     | 动画制作公司(读取Credit行最后一行自由文本）|
-| `original_sources` | 原作来源信息(拥有`original_company`（出版社）、`original_label`（出版社label）两个子key） |
-| `original_oncommittee` | 原作方是否在 committee 内（b 模式） |
-| `original_onseisaku` | 原作方是否在 seisaku_company 内（非 b 模式） |
-| `production_oncommittee` | 动画制作公司是否在committee内（b 模式） |
-| `production_onseisaku` | 动画制作公司是否在seisaku_company 内（非 b 模式） |
+| `total_duration` | 总时长，例如 `"04:48:00"` |
+| `committee_name` | 委员会名称。仅在 `production_mode = 製作委員會` 时出现 |
+| `production`     | 动画制作公司（读取 Credit 区最后一行自由文本） |
+| `produced_by` | Produced by 列表（数组）。由 `Produced by：` role 段触发时产生 |
+| `original_sources` | 原作来源信息（数组），每项含 `original_company`（出版社）、可选 `original_label`（发行 label） |
+| `original_onseisaku` | 原作方是否在 `seisaku_company` 内，仅在为 `true` 时输出 |
 
 ---
 
-### 2.2 committee_name 与字段分流
+### 2.2 committee_name 与归属字段
 
-当 `production_mode = "製作委員会"` 时：
-
-- 使用 `committee`
-- 可输出 `committee_name`
-- 可输出 `original_oncommittee`
-- 可输出 `production_oncommittee`
-
-当 `production_mode != "製作委員会"` 时：
-
-- 使用 `seisaku_company`
-- 不输出 `committee_name`
-- 使用 `original_onseisaku`
-- 使用 `production_onseisaku`
+- `committee_name` 仅在 `production_mode = "製作委員會"` 时出现，取自以 `*` 开头的委员会标题行（如 `*淡島百景製作委員会`）
+- `original_onseisaku`：原作公司是否出现在 `seisaku_company` 中；仅在为 `true` 时输出，不输出 `false`
+- 无论哪种 `production_mode`，本项目当前解析器都将制作相关公司统一输出到 `seisaku_company`
 
 ---
 
-## 2.3 committee / seisaku_company 规范
+## 2.3 seisaku_company 规范
 
-### 2.4 b 模式
+### 2.4 製作委員會 模式
 
-当 `production_mode = "製作委員会"` 时，委员会相关行输出到 `committee`。
+当 `production_mode = "製作委員會"` 时，`*` 开头的委员会标题行会填入 `committee_name`，其后的组织行解析为 `seisaku_company` 成员。
 
-示例：
+示例（ASCH 输入）：
 
 ```text
-「黒猫と魔女の教室」製作委員会
-電通
-Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}「1-11」
+*淡島百景製作委員会
+KADOKAWA
+MADHOUSE
+富士电视台
+樂天
+BS富士
 ```
 
-语义：
+对应输出：
 
-- 第一条可能是委员会标题；
-- 标题本身不拆为一个独立实体；
-- 其后的组织行解析为 committee 成员。
+```json
+"metadata": { "committee_name": "淡島百景製作委員会", ... },
+"seisaku_company": [
+  { "company": "KADOKAWA", "episodes": "all" },
+  { "company": "MADHOUSE", "episodes": "all" },
+  ...
+]
+```
 
 ---
 
-### 2.5 非 b 模式
-
-当 `production_mode != "製作委員会"` 时，使用 `seisaku_company`。
+### 2.5 非 製作委員會 模式（solo / 製作/共同製作 / Netflix Mode）
 
 示例：
 
 ```text
-製作
-NBC環球娛樂
-MBS
-JR東日本企劃
+东宝
 ```
 
 此时：
 
 - `committee_name` 不输出；
-- 前导标签行会被视作分组提示；
-- 真正的公司成员输出至 `seisaku_company`。
+- 公司行输出到 `seisaku_company`。
 
 ---
 
-### 2.6 committee 成员通用字段
+### 2.6 seisaku_company 成员通用字段
 
 | 字段 | 含义 |
 |---|---|
 | `company` | 公司/组织名 |
-| `episodes` | 集数范围 |
-| `functions` | 职能列表 |
-| `window_rights` | 窗口权 |
+| `episodes` | 集数范围（默认 `"all"`） |
+| `from_role` | 布尔标记，表示该成员由 role 段（如 `Produced by：`）间接派生，而非显式的 committee 行 |
 
 ---
 
@@ -124,30 +111,37 @@ JR東日本企劃
 
 ### 3.1 基本形式
 
-credit 行以 `*` 开头：
+credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` 前缀），角色由紧邻的 `<role>` 行确定：
 
 ```text
-* 新居祐介 ( 電通|动画企划部 )
-* 高島祐一郎 ( 講談社 )「12-14话」->古川慎（講談社?）「14-24话」
+<制片人>
+柳澤俊介（东宝）
+井上雄仁（东宝）
+大田圭二（东宝|动画企划部）
+高島祐一郎（講談社）「12-14话」->古川慎（講談社?）「14-24话」
 ```
+
+> `*` 前缀在 ASCH 中保留给**特殊节点**：委员会标题行（如 `*淡島百景製作委員会`）、或 Credit 区末尾的动画制作公司 / 无公司信息的 person 行。普通 credit 行不使用 `*`。
 
 ### 3.2 通用字段
 
 | 字段 | 含义 |
 |---|---|
-| `role` | 当前角色 |
+| `role` | 当前角色（由最近一个 `<role>` 行决定） |
 | `person` | 人名 |
+| `person_realname` | 人员本名（例如罗马字本名） |
 | `company` | 公司 |
-| `department` | 部门 |
-| `episodes` | 参与集数。 默认为all|
-| `person_id` | 人员 ID |
-| `person_uncertain` | 人名不确定 |
-| `company_uncertain` | 公司不确定 |
-| `succession` | 后继链 |
-| `former_company` | 跳槽来源（前东家） |
-| `former_company__uncertain` | 跳槽来源不确定 |
-| `affiliations` | 附属机构/马甲公司/二次派遣性质列表 |
-| `unverified` | 未查证。仅有person但无company时的标记 |
+| `parent_company` | 母公司（当解析器可以关联到时输出） |
+| `department` | 部门，数组（例如 `["ULTRA JUMP编辑部", "第4编辑部企画室"]`） |
+| `episodes` | 参与集数。默认为 `"all"` |
+| `person_uncertain` | 人名不确定（来自 `?`） |
+| `company_uncertain` | 公司不确定（来自 `？` / `?`） |
+| `former_company` | 跳槽来源（前东家，来自 `<-`） |
+| `former_company_uncertain` | 跳槽来源不确定（来自 `?<-`） |
+| `affiliations` | 附属机构/马甲公司/二次派遣列表 |
+| `unverified` | 未查证。仅有 `person` 但无 `company` 时输出 `true` |
+
+> 注：早期规范曾提及 `succession`（`->` 后继链）与 `person_id`（`#` 消歧义），当前解析器输出中暂未出现这些字段；若需使用请以 04.json 实际输出为准。
 
 
 ##  📚开发者备忘录
@@ -156,24 +150,20 @@ credit 行以 `*` 开头：
 
 ###  语义约定与脚本聚合逻辑说明
 
-####  production_mode 与输出字段
+####  seisaku_company
 
-- `production_mode = "製作委員会"` → 输出 `committee`
-- 其他值 → 输出 `seisaku_company`
+- 所有 `production_mode` 都将制作 / 委员会成员统一输出到 `seisaku_company`。
+- 解析器不再分流到 `committee` 字段。
 
 #### committee_name
 
-- 仅在 `production_mode = "製作委員会"` 时输出；
-- 非 b 模式不输出该字段。
+- 仅在 `production_mode = "製作委員會"` 时输出；
+- 非 委員會 模式不输出该字段。
 
-####  original/production的归属字段
+####  归属字段
 
-- b 模式：
-  - `original_oncommittee`
-  - `production_oncommittee`
-- 非 b 模式：
-  - `original_onseisaku`
-  - `production_onseisaku`
+- `original_onseisaku`：原作公司是否在 `seisaku_company` 中，仅在为 `true` 时输出。
+- 其他 `*_oncommittee` / `production_onseisaku` 字段在当前解析器输出中未出现，如需请以 04.json 实际输出为准。
 
 ####  省略空字段
 
@@ -214,7 +204,7 @@ credit 行以 `*` 开头：
 7. 判断是否为类型行；
 8. 判断是否为 role 行；
 9. 判断是否为 credit 行；
-10. 按当前模式写入 `committee` 或 `seisaku_company`。
+10. 将组织行写入 `seisaku_company`，并根据 `production_mode` 决定是否附带 `committee_name`。
 
 
 
@@ -290,8 +280,11 @@ role-angle          = "<", space*, role-name, space*, ">" ;
 role-colon          = role-name, ":" ;
 role-name           = text-until-eol ;
 
-credit-line         = "*", space*, credit-body ;
+credit-line         = [ "*", space* ], credit-body ;
 credit-body         = credit-fragment, { arrow, credit-fragment } ;
+
+(* "*" 前缀仅用于特殊节点（委员会标题行、或 Credit 区末尾的 studio / 无公司 person 行） *)
+(* 普通 credit 行不使用 "*" 前缀 *)
 arrow               = "->" | "<-" ;
 
 credit-fragment     = [ episode-mark ], [ person-part ], { member-tail } ;
