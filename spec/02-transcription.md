@@ -322,6 +322,49 @@ $command:[recommand:"这是嵌套注入",emoji:"👿“]
 
 ---
 
+##  注释行
+
+以 `//` 开头的行为**注释行**，用于在当前 role 段下追加补充信息。
+
+### 基本语法
+
+```text
+//In association with Netflix
+```
+
+### 解析行为
+
+注释行会产生两处输出：
+
+1. 若注释文本匹配 `In association with X`，则向作品级 metadata 写入 `in_association_with: "X"`；
+2. 在当前 role 下生成一条 CreditEntry：`{ "role": <当前 role>, "episodes": "all", "tips": <注释原文> }`。
+
+示例（ASCH）：
+
+```text
+<原作协力>
+木所孝太（秋田書店）
+國府田崇裕（秋田書店）
+田中康太（秋田書店）
+//In association with Netflix
+<宣传>
+```
+
+对应输出片段：
+
+```json
+"metadata": { "in_association_with": "Netflix", ... },
+"CreditEntry": [
+  { "role": "原作协力", "episodes": "all", "company": "秋田書店", "person": "木所孝太" },
+  ...
+  { "role": "原作协力", "episodes": "all", "tips": "In association with Netflix" }
+]
+```
+
+> 早期版本（04.asch）曾以 `$PS:` 注入承担此功能（例如 `$PS:In association with Netflix`）。新版已改为 `//` 注释行语法；原 `$PS:` 写法保留的话解析器未必会生成 `in_association_with` / `tips` 字段，请以新语法录入。
+
+---
+
 ##  值类型规则
 
 ###  字符串
@@ -517,10 +560,10 @@ Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}
 
 ## 6 语义约定
 
-### 6.1 seisaku_company 字段
+### 6.1 production_mode 与输出字段
 
-- 任意 `production_mode` 都将制作 / 委员会成员统一输出到 `seisaku_company`。
-- 解析器不再分流到 `committee` 字段。
+- `production_mode = "製作委員會"` → 输出 `committee`
+- 其他值（`solo` / `製作/共同製作` / `Netflix Mode`） → 输出 `seisaku_company`
 
 ### 6.2 committee_name
 
@@ -528,10 +571,11 @@ Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}
 - 取自以 `*` 开头的委员会标题行。
 - 非 委員會 模式不输出该字段。
 
-### 6.3 归属字段
+### 6.3 原作归属字段
 
-- `original_onseisaku`：原作公司是否在 `seisaku_company` 中，仅在为 `true` 时输出。
-- 本规范早期提到的 `*_oncommittee` / `production_onseisaku` 目前未出现在解析器输出中，请以 04.json 实际输出为准。
+- 委員會 模式：`original_oncommittee`
+- 非 委員會 模式：`original_onseisaku`
+- 仅在为 `true` 时输出，不输出 `false`。
 
 ### 6.4 省略空字段
 
@@ -564,7 +608,7 @@ BS富士
 田代早苗（MADHOUSE）
 ```
 
-> 以 `*` 开头的行是**委员会标题行**（填入 `committee_name`）。标题之后的组织行直接是成员公司，角色段落下的人名行不带 `*` 前缀。
+> 以 `*` 开头的行是**委员会标题行**（填入 `committee_name`）。标题之后的组织行输出到 `committee[]`，角色段落下的人名行不带 `*` 前缀。
 
 ### 7.2 solo / 製作/共同製作 模式
 

@@ -13,10 +13,17 @@
 一个 ASCH 文本最终通常会解析为多个作品条目。每个作品条目包含以下逻辑区域：
 
 - `metadata`：作品元数据
-- `seisaku_company`：制作公司 / 委员会成员公司列表
+- `committee` 或 `seisaku_company`：委员会 / 制作相关公司列表
 - `CreditEntry`：人员 credit 列表
 
-无论 `production_mode` 取何值（`solo` / `製作委員會` / `製作/共同製作` / `Netflix Mode`），委员会 / 制作公司成员都统一输出到 `seisaku_company`。`production_mode` 仅影响伴随的元数据字段（例如 `committee_name` 是否出现）。
+字段分流由 `production_mode` 决定：
+
+| production_mode | 公司列表字段 | 原作归属字段 |
+|---|---|---|
+| `製作委員會` | `committee` | `original_oncommittee` |
+| `製作/共同製作` | `seisaku_company` | `original_onseisaku` |
+| `solo` | `seisaku_company` | `original_onseisaku` |
+| `Netflix Mode` | `seisaku_company` | `original_onseisaku` |
 
 
 
@@ -40,23 +47,35 @@
 | `production`     | 动画制作公司（读取 Credit 区最后一行自由文本） |
 | `produced_by` | Produced by 列表（数组）。由 `Produced by：` role 段触发时产生 |
 | `original_sources` | 原作来源信息（数组），每项含 `original_company`（出版社）、可选 `original_label`（发行 label） |
-| `original_onseisaku` | 原作方是否在 `seisaku_company` 内，仅在为 `true` 时输出 |
+| `original_oncommittee` | 原作方是否在 `committee` 内，仅 `製作委員會` 模式且为 `true` 时输出 |
+| `original_onseisaku` | 原作方是否在 `seisaku_company` 内，仅非委員會 模式且为 `true` 时输出 |
+| `in_association_with` | 协作方（由 `//In association with X` 注释行触发，值为 `X`） |
 
 ---
 
-### 2.2 committee_name 与归属字段
+### 2.2 committee_name 与字段分流
 
-- `committee_name` 仅在 `production_mode = "製作委員會"` 时出现，取自以 `*` 开头的委员会标题行（如 `*淡島百景製作委員会`）
-- `original_onseisaku`：原作公司是否出现在 `seisaku_company` 中；仅在为 `true` 时输出，不输出 `false`
-- 无论哪种 `production_mode`，本项目当前解析器都将制作相关公司统一输出到 `seisaku_company`
+当 `production_mode = "製作委員會"` 时：
+
+- 使用 `committee`
+- 可输出 `committee_name`（取自以 `*` 开头的委员会标题行，如 `*淡島百景製作委員会`）
+- 可输出 `original_oncommittee`
+
+当 `production_mode != "製作委員會"`（`solo` / `製作/共同製作` / `Netflix Mode`）时：
+
+- 使用 `seisaku_company`
+- 不输出 `committee_name`
+- 可输出 `original_onseisaku`
+
+`original_oncommittee` / `original_onseisaku` 仅在为 `true` 时输出，不输出 `false`。
 
 ---
 
-## 2.3 seisaku_company 规范
+## 2.3 committee / seisaku_company 规范
 
 ### 2.4 製作委員會 模式
 
-当 `production_mode = "製作委員會"` 时，`*` 开头的委员会标题行会填入 `committee_name`，其后的组织行解析为 `seisaku_company` 成员。
+当 `production_mode = "製作委員會"` 时，`*` 开头的委员会标题行会填入 `committee_name`，其后的组织行解析为 `committee` 成员。
 
 示例（ASCH 输入）：
 
@@ -73,7 +92,7 @@ BS富士
 
 ```json
 "metadata": { "committee_name": "淡島百景製作委員会", ... },
-"seisaku_company": [
+"committee": [
   { "company": "KADOKAWA", "episodes": "all" },
   { "company": "MADHOUSE", "episodes": "all" },
   ...
@@ -97,13 +116,13 @@ BS富士
 
 ---
 
-### 2.6 seisaku_company 成员通用字段
+### 2.6 committee / seisaku_company 成员通用字段
 
 | 字段 | 含义 |
 |---|---|
 | `company` | 公司/组织名 |
 | `episodes` | 集数范围（默认 `"all"`） |
-| `from_role` | 布尔标记，表示该成员由 role 段（如 `Produced by：`）间接派生，而非显式的 committee 行 |
+| `from_role` | 布尔标记，表示该成员由 role 段（如 `Produced by：`）间接派生，而非显式的组织行 |
 
 ---
 
@@ -140,8 +159,9 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 | `former_company_uncertain` | 跳槽来源不确定（来自 `?<-`） |
 | `affiliations` | 附属机构/马甲公司/二次派遣列表 |
 | `unverified` | 未查证。仅有 `person` 但无 `company` 时输出 `true` |
+| `tips` | 注释性补充（由 `//` 注释行在当前 role 下产生，内容为注释原文） |
 
-> 注：早期规范曾提及 `succession`（`->` 后继链）与 `person_id`（`#` 消歧义），当前解析器输出中暂未出现这些字段；若需使用请以 04.json 实际输出为准。
+> 注：早期规范曾提及 `succession`（`->` 后继链）与 `person_id`（`#` 消歧义），当前解析器输出中暂未出现这些字段；若需使用请以 04-new.json 实际输出为准。
 
 
 ##  📚开发者备忘录
@@ -150,20 +170,21 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 
 ###  语义约定与脚本聚合逻辑说明
 
-####  seisaku_company
+####  production_mode 与输出字段
 
-- 所有 `production_mode` 都将制作 / 委员会成员统一输出到 `seisaku_company`。
-- 解析器不再分流到 `committee` 字段。
+- `production_mode = "製作委員會"` → 输出 `committee`
+- 其他值 → 输出 `seisaku_company`
 
 #### committee_name
 
 - 仅在 `production_mode = "製作委員會"` 时输出；
 - 非 委員會 模式不输出该字段。
 
-####  归属字段
+####  原作归属字段
 
-- `original_onseisaku`：原作公司是否在 `seisaku_company` 中，仅在为 `true` 时输出。
-- 其他 `*_oncommittee` / `production_onseisaku` 字段在当前解析器输出中未出现，如需请以 04.json 实际输出为准。
+- 委員會 模式：`original_oncommittee`
+- 非 委員會 模式：`original_onseisaku`
+- 仅在为 `true` 时输出。
 
 ####  省略空字段
 
@@ -204,7 +225,7 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 7. 判断是否为类型行；
 8. 判断是否为 role 行；
 9. 判断是否为 credit 行；
-10. 将组织行写入 `seisaku_company`，并根据 `production_mode` 决定是否附带 `committee_name`。
+10. 按当前 `production_mode` 将组织行写入 `committee`（委員會 模式）或 `seisaku_company`（其他模式）。
 
 
 
@@ -228,7 +249,12 @@ line                = blank-line
                     | credit-line
                     | committee-line
                     | injection-line
+                    | comment-line
                     | text-line ;
+
+comment-line        = "//", text-until-eol ;
+(* "//In association with X" 行会向当前作品的 metadata 写入 in_association_with=X，
+   并在当前 role 下生成一条 { role, episodes, tips } 的 CreditEntry *)
 
 blank-line          = { space } ;
 ```

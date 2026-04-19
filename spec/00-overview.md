@@ -91,14 +91,17 @@
 
 ```
 Work
-├── 1. seisaku_company（核心）—— 最终归纳的成员公司列表
+├── 1. committee / seisaku_company（核心）—— 最终归纳的成员公司列表
 ├── 2. Credit 条目（证据）—— 从片尾 credit 逐条转录的原始记录
 └── 3. 作品信息（辅助）—— 类型、首播日、集数等，用于关联分析
 ```
 
-### 1. seisaku_company（核心数据）
+### 1. committee / seisaku_company（核心数据）
 
-每部作品最终归纳出的制作 / 委员会成员公司列表。这是本项目的**主要产出**。无论 `production_mode` 为何，成员都统一汇集在 `seisaku_company` 字段下；在 `製作委員會` 模式时，额外由 `metadata.committee_name` 记录委员会标题。
+每部作品最终归纳出的制作 / 委员会成员公司列表。这是本项目的**主要产出**。字段名由 `production_mode` 决定：
+
+- `製作委員會` 模式 → `committee[]`，并在 `metadata.committee_name` 记录委员会标题
+- 其他模式（`solo` / `製作/共同製作` / `Netflix Mode`） → `seisaku_company[]`
 
 每个成员公司记录：
 
@@ -144,7 +147,9 @@ Credit 条目只记录 credit 上**实际写了什么**，不做推断。
 | **committee_name** | 委员会原始日文名（仅 `製作委員會` 模式输出） |
 | **production_mode** | 制作模式枚举：`solo` / `製作委員會` / `製作/共同製作` / `Netflix Mode` |
 | **produced_by** | Produced by 列表（由同名 role 段派生） |
-| **original_onseisaku** | 原作公司是否在 `seisaku_company` 中（仅为 `true` 时输出） |
+| **original_oncommittee** | 原作公司是否在 `committee` 中，仅委員會 模式且为 `true` 时输出 |
+| **original_onseisaku** | 原作公司是否在 `seisaku_company` 中，仅非委員會 模式且为 `true` 时输出 |
+| **in_association_with** | 协作方（由 `//In association with X` 注释行触发） |
 
 ### 独立的参照实体
 
@@ -161,7 +166,7 @@ Credit 条目只记录 credit 上**实际写了什么**，不做推断。
 
 ```
 Work
-├── seisaku_company[]（核心）
+├── committee[] (委員會模式)  |  seisaku_company[] (其他模式)
 │   ├── → Company
 │   ├── episodes            集数范围（默认 "all"）
 │   └── from_role           由 role 段派生时标记
@@ -172,11 +177,13 @@ Work
 │   ├── affiliations[]      附属 / 马甲 / 二次派遣
 │   ├── former_company(_uncertain)   跳槽来源
 │   ├── unverified          仅有 person 无 company 时
+│   ├── tips                由 // 注释行在当前 role 下生成
 │   └── episodes            登场集数
 └── metadata（辅助）
     ├── title, type, year, season, release_date ...
     ├── production, original_sources, produced_by ...
-    └── production_mode, committee_name, original_onseisaku ...
+    ├── in_association_with ...
+    └── production_mode, committee_name, original_oncommittee / original_onseisaku ...
 
 Company ←→ Company（改名 / 合并 / 母子公司）
 Company  → Department[]
