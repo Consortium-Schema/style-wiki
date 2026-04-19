@@ -78,7 +78,7 @@ credit行
 
 ### 3.3 符号映射表
 
-**录入时每一行以 * 开头的条目都是一个证据节点。通过符号映射，你可以表达极其复杂的权属关系。**
+**普通 credit 行直接写在 `<role>` 段下，不加前缀；`*` 前缀保留给特殊节点（见 §4.x）。通过下列符号映射可表达复杂的权属关系。**
 | 符号 |语义  | 录入示例
 | :--- | :--- | :--- |
 | ？   | 不确定性 | 夏目公一朗（KADOKAWA？）
@@ -87,6 +87,8 @@ credit行
 | ->   | 后继链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」
 | \|   | 隶属分隔 | 大西恒平（集英社\|周刊少年JUMP编辑部）
 | #    | 消歧义| 鈴木健太#org:Aniplex（Aniplex)或アリエル・リー#id:Ariel Li（Crunchyroll）
+
+> 当前解析器的 04.json 输出中尚未包含 `succession`（后继链）、`person_id`（消歧义）字段——`->` 与 `#` 属于录入层面已支持但输出映射尚待定案的特性。
 
 ---
 
@@ -176,7 +178,7 @@ production mode：
 - `f` → `Netflix Mode`
 - `s` → `solo`
 - `t` → `製作/共同製作`
-- `b` → `製作委員会`
+- `b` → `製作委員會`
 
  ***"什么？！网飞的大手？！"***
 
@@ -191,7 +193,7 @@ production mode：
 - `Netflix Mode`
 - `solo`
 - `製作/共同製作`
-- `製作委員会`
+- `製作委員會`
 
 对应输入字符只能单独出现一个，不允许组合，例如：
 
@@ -205,20 +207,22 @@ production mode：
 默认值为：
 
 ```json
-"production_mode": "製作委員会"
+"production_mode": "製作委員會"
 ```
 
 ---
 
 ### 4.3.3 association_netflix
 
-若类型行中包含 `i`，则：
+若类型行中包含 `i`，则（规范预期）：
 
 ```json
 "association_netflix": true
 ```
 
 若未出现 `i`，则该字段省略，不建议输出为 `false`。
+
+> 注：该字段在当前 04.json 输出样本中暂未出现，属于待定案特性。录入层面可继续使用 `i` 以保留语义，但解析器的实际映射以 04.json 为准。
 
 ---
 
@@ -265,7 +269,7 @@ A -> B -> C
 
 - `person = 岡﨑剛之`
 - `former_company = bilibili`
-- `former_company__uncertain = true`
+- `former_company_uncertain = true`
 
 ---
 
@@ -505,7 +509,7 @@ Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}
 ```json
 {
   "former_company": "bilibili",
-  "former_company__uncertain": true
+  "former_company_uncertain": true
 }
 ```
 
@@ -513,24 +517,21 @@ Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}
 
 ## 6 语义约定
 
-### 6.1 production_mode 与输出字段
+### 6.1 seisaku_company 字段
 
-- `production_mode = "製作委員会"` → 输出 `committee`
-- 其他值 → 输出 `seisaku_company`
+- 任意 `production_mode` 都将制作 / 委员会成员统一输出到 `seisaku_company`。
+- 解析器不再分流到 `committee` 字段。
 
 ### 6.2 committee_name
 
-- 仅在 `production_mode = "製作委員会"` 时输出；
-- 非 b 模式不输出该字段。
+- 仅在 `production_mode = "製作委員會"` 时输出；
+- 取自以 `*` 开头的委员会标题行。
+- 非 委員會 模式不输出该字段。
 
-### 6.3 original / production 的归属字段
+### 6.3 归属字段
 
-- b 模式：
-  - `original_oncommittee`
-  - `production_oncommittee`
-- 非 b 模式：
-  - `original_onseisaku`
-  - `production_onseisaku`
+- `original_onseisaku`：原作公司是否在 `seisaku_company` 中，仅在为 `true` 时输出。
+- 本规范早期提到的 `*_oncommittee` / `production_onseisaku` 目前未出现在解析器输出中，请以 04.json 实际输出为准。
 
 ### 6.4 省略空字段
 
@@ -545,36 +546,46 @@ Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}
 
 ## 7. 推荐示例
 > ⚠️  *仅为本页面展示使用，与实际表记有较大出入。*
-### 7.1 b 模式
+### 7.1 製作委員會 模式
 
 ```text
 202604
-## 黒猫と魔女の教室
-ni
-$command:test
-「黒猫と魔女の教室」製作委員会
-電通
-Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}「1-11」
-< 企劃 >
-* 新居祐介 ( 電通|动画企划部 )$command:[recommand:"这是嵌套注入",emoji:"👿“]
+##淡岛百景
+*淡島百景製作委員会
+KADOKAWA
+MADHOUSE
+富士电视台
+樂天
+BS富士
+<企画>
+工藤大丈（KADOKAWA）
+<执行制片人>
+田中翔（KADOKAWA）
+田代早苗（MADHOUSE）
 ```
 
-### 7.2 非 b 模式
+> 以 `*` 开头的行是**委员会标题行**（填入 `committee_name`）。标题之后的组织行直接是成员公司，角色段落下的人名行不带 `*` 前缀。
+
+### 7.2 solo / 製作/共同製作 模式
 
 ```text
-20260303
-## 夜櫻家大作戰 第二季
-4mngt24:12
-製作
-NBC環球娛樂
-MBS
-JR東日本企劃
-< 企劃 >
-* 許樹人（NBC環球娛樂）
+202604
+##BESTARS最終季第二部
+s24:12
+东宝
+<製作>
+大田圭二（东宝）
+<执行制片人>
+山中一孝（东宝）
+<主制片人>
+高橋敦司（东宝）
 ```
 
 ---
 
 ## 约定规范
-- 在Credit最后一行空白行定义动画制作公司（非强制）
+- 普通 credit 行**不带** `*` 前缀；`*` 保留给以下特殊节点：
+  - 作品起始处的委员会标题行（会填入 `metadata.committee_name`）
+  - Credit 区最后一行的动画制作公司（会填入 `metadata.production`）
+- 在 Credit 最后一行定义动画制作公司（非强制）
 - 禁止无意义地使用符号映射功能造成歧义。
