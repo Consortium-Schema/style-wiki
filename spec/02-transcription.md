@@ -39,11 +39,9 @@ ASCH旨在用**接近人类可读的纯文本**描述动画作品资料，并支
 ```TEXT
 日期行
 作品标题行
-类型行
-注入行
-製作委員会/Production-Mode行
-成员行
-角色行
+类型行                                                $注入行
+製作委員会/其他製作模式标题行
+公司成员行
 credit行
 ```
 作品以标题行开始：
@@ -75,6 +73,7 @@ credit行
   - `＞` → `>`
   - `＄` → `$`
   - `＼` → `\`
+  - ···
 
 ### 3.3 符号映射表
 
@@ -85,13 +84,12 @@ credit行
 | `<-`   | 跳槽来源 | 安倍孝二（GOOD Smile China）<-bilibili | `former_company` |
 | `?<-`  | 跳槽来源不确定 | 岡﨑剛之（CBC電視台）?<-bilibili | `former_company_uncertain` |
 | 「」   | 集数赋予 | 沢辺伸政（小学馆）「1-13话」 | `episodes` |
-| `->`   | 后继链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」 | _（解析器当前未输出，待定案）_ |
+| `->`   | 后继链 | 沢辺伸政（小学馆）「1-13话」->備前島幹人（小学馆）「14话－24话」 |`succession` |
 | `\|`   | 隶属分隔（部门） | 大西恒平（集英社\|周刊少年JUMP编辑部） | `department` |
 | `@`    | 母公司归属 | 木下直哉（HERO'S）@木下Group；小野朗（SPEEDSTAR RECORDS@JVC建伍胜利娱乐） | `parent_company` |
 | `／` / `/` | 人员本名分隔 | ワンミシェル／Michelle Wang（KADOKAWA） | `person_realname` |
-| `#`    | 消歧义 | 鈴木健太#org:Aniplex（Aniplex）；アリエル・リー#id:Ariel Li（Crunchyroll） | _（解析器当前未输出，待定案）_ |
+| `#`    | 消歧义 | 鈴木健太#org:Aniplex（Aniplex）；アリエル・リー#id:Ariel Li（Crunchyroll） |`person_id` |
 
-> `->` 后继链、`#` 消歧义在当前解析器（见 04-new.json）输出中尚未生成对应字段，属于录入层面已支持但输出映射待定案的特性。
 
 **`@` 的两种位置**：
 - 放在括号外：`person（company）@parent_company`
@@ -123,7 +121,7 @@ credit行
 - `season`：季节/月份
 - 或 `release_date`：电影/特别条目日期。
 
->检测到到`DD`时由Season转变，他会改变type值为剧场版（如果你没有在类型行显式定义）
+>检测到`DD`时由Season转变，他会改变type值为剧场版（如果你没有在类型行显式定义）
 
 具体映射由实现决定，但一般遵循：
 
@@ -233,8 +231,7 @@ production mode：
 
 若未出现 `i`，则该字段省略，不建议输出为 `false`。
 
-> 注：该字段在当前 04.json 输出样本中暂未出现，属于待定案特性。录入层面可继续使用 `i` 以保留语义，但解析器的实际映射以 04.json 为准。
-
+>多次迭代后解析器已实现动态字段嗅探功能，该功能仅作为特殊情况保留
 ---
 
 ### 4.3.4 时长附加
@@ -286,7 +283,7 @@ A -> B -> C
 
 ##  注入系统
 
-> **现状提示**：当前样本（04-new.asch）中并未实际出现 `$` 注入行，本节规则属于设计规范层面。若需使用，以解析器实际输出为准。
+> **现状提示**：注入的字段处理权重仅次于[]{},请谨慎使用。
 
 ASCH 的注入系统使用 `$` 分隔，允许在任意节点追加结构化字段。
 
@@ -331,87 +328,10 @@ $command:[recommand:"这是嵌套注入",emoji:"👿“]
 - 作品级 metadata 行
 - committee 行
 - credit 行
-- member 内部括号段
+- role块内部段
 
 ---
 
-##  英文指令行（Directive Lines）
-
-ASCH 支持若干英文指令行，会被解析器识别并提升为 metadata 字段。按出现位置分为**委员会标题后指令**与**role 段内指令**。
-
-### 1. 委员会标题后指令（`*committee_name` 行之后、首个 `<role>` 行之前）
-
-| 录入 | 输出 metadata 字段 | 值形态 |
-| :--- | :--- | :--- |
-| `Produced by X,Y,Z` | `produced_by` | 字符串数组（按 `,` 拆分） |
-| `Co-produced with X` | `co-produced_with` | 字符串 |
-
-示例：
-
-```text
-*ジョジョの奇妙な冒険SBR製作委員会
-Produced by Warner Bros. Japan,集英社
-<企画>
-...
-```
-
-```text
-*日本三國製作委員会
-Co-produced with Amazon MGM Studios
-<製作总指挥>
-...
-```
-
-### 2. role 段内指令
-
-| 录入 | 输出 metadata 字段 | 额外生成的 CreditEntry |
-| :--- | :--- | :--- |
-| `UNLIMITED PRODUCE by X` | `unlimited_produce_by = X` | `{ role, episodes:"all", person: <原行>, unverified: true }` |
-| `//In association with X` | `in_association_with = X` | `{ role, episodes:"all", tips: <注释原文> }` |
-
-示例（`//` 注释行）：
-
-```text
-<原作协力>
-木所孝太（秋田書店）
-國府田崇裕（秋田書店）
-田中康太（秋田書店）
-//In association with Netflix
-<宣传>
-```
-
-对应输出片段：
-
-```json
-"metadata": { "in_association_with": "Netflix", ... },
-"CreditEntry": [
-  { "role": "原作协力", "episodes": "all", "company": "秋田書店", "person": "木所孝太" },
-  ...
-  { "role": "原作协力", "episodes": "all", "tips": "In association with Netflix" }
-]
-```
-
-示例（`UNLIMITED PRODUCE by`）：
-
-```text
-<企画Produce>
-UNLIMITED PRODUCE by TMS
-<製作>
-竹崎忠（TMS Entertainment）
-```
-
-对应输出片段：
-
-```json
-"metadata": { "unlimited_produce_by": "TMS", ... },
-"CreditEntry": [
-  { "role": "企画Produce", "episodes": "all", "person": "UNLIMITED PRODUCE by TMS", "unverified": true }
-]
-```
-
-> 早期版本（04.asch）曾以 `$PS:` 注入承担「In association with」的语义（例如 `$PS:In association with Netflix`）。新版已改为 `//` 注释行语法；原 `$PS:` 写法保留的话解析器不会生成 `in_association_with` / `tips` 字段，请以新语法录入。
-
----
 
 ##  值类型规则
 
@@ -454,6 +374,141 @@ functions:[商品, 原作, 出版社]
 ```text
 command:{foo:1, bar:"x"}
 ```
+
+### 复合语法的注入与动态字段嗅探实例：
+>🚥仅作为示范，请勿过度解读
+```asch
+185810
+## 某动画
+$title:靠注入改名字，可以但不犯法。
+*欢乐斗幕府
+《企画》
+冲田总司（\?新选组）【职能1,职能2,职能3】「1-13话」//for_role动态字段的functions若为职能123代表注入失败。 $functions:[我，在，哪，？] 
+《制片人》
+吉田松阴（传马町牢屋敷\@）@1,2,3
+<宣传·制作/授权、海外宣传>
+Shown Kochi（夏田書店）@冬田書店,春田書店
+// In association with Metplix 「11-12话」$add:海外流媒体合作方 
+damn south (Metplix @MPLX) //\$已注入role $role:role
+*尊国攘夷
+//Produced by WniQlexDmyamic,Blanning Inc.  「12」
+```
+JSON侧输出：
+
+````JSON
+[
+  {
+    "metadata": {
+      "year": "1858",
+      "season": "10",
+      "title": "靠注入改名字,可以但不犯法。",
+      "production_mode": "製作委員会",
+      "in_association_with": [
+        {
+          "value": "Metplix",
+          "episodes": "11-12话"
+        }
+      ],
+      "production": "尊国攘夷",
+      "produced_by": [
+        {
+          "value": "WniQlexDmyamic",
+          "episodes": "12"
+        },
+        {
+          "value": "Blanning Inc.",
+          "episodes": "12"
+        }
+      ],
+      "committee_name": "欢乐斗幕府"
+    },
+    "committee": [
+      {
+        "from_role": true,
+        "company": "?新选组",
+        "episodes": "1-13话",
+        "functions": [
+          "职能1",
+          "职能2",
+          "职能3"
+        ]
+      }
+    ],
+    "CreditEntry": [
+      {
+        "role": "企画",
+        "episodes": "1-13话",
+        "tips": "for_role动态字段的functions若为职能123代表注入失败。",
+        "company": "?新选组",
+        "person": "冲田总司",
+        "functions": [
+          "我",
+          "在",
+          "哪",
+          "?"
+        ]
+      },
+      {
+        "role": "制片人",
+        "episodes": "all",
+        "parent_company": [
+          "1",
+          "2",
+          "3"
+        ],
+        "company": "传马町牢屋敷@",
+        "person": "吉田松阴"
+      },
+      {
+        "role": [
+          "宣传",
+          "制作",
+          "授权",
+          "海外宣传"
+        ],
+        "episodes": "all",
+        "parent_company": [
+          "冬田書店",
+          "春田書店"
+        ],
+        "company": "夏田書店",
+        "person": "Shown Kochi"
+      },
+      {
+        "role": [
+          "宣传",
+          "制作",
+          "授权",
+          "海外宣传"
+        ],
+        "episodes": "11-12话",
+        "add": "海外流媒体合作方",
+        "tips": "In association with Metplix"
+      },
+      {
+        "role": "role",
+        "episodes": "all",
+        "tips": "$已注入role",
+        "company": "Metplix",
+        "person": "damn south",
+        "parent_company": "MPLX"
+      },
+      {
+        "role": [
+          "宣传",
+          "制作",
+          "授权",
+          "海外宣传"
+        ],
+        "episodes": "12",
+        "tips": "Produced by WniQlexDmyamic,Blanning Inc."
+      }
+    ]
+  }
+]
+````
+
+
 
 ---
 
@@ -606,35 +661,6 @@ Good Smile Company{商品权:12,影视改编权:"亚洲.ex日本"}
 
 ---
 
-## 6 语义约定
-
-### 6.1 production_mode 与输出字段
-
-- `production_mode = "製作委員會"` → 输出 `committee`
-- 其他值（`solo` / `製作/共同製作` / `Netflix Mode`） → 输出 `seisaku_company`
-
-### 6.2 committee_name
-
-- 仅在 `production_mode = "製作委員會"` 时输出；
-- 取自以 `*` 开头的委员会标题行。
-- 非 委員會 模式不输出该字段。
-
-### 6.3 原作归属字段
-
-- 委員會 模式：`original_oncommittee`
-- 非 委員會 模式：`original_onseisaku`
-- 仅在为 `true` 时输出，不输出 `false`。
-
-### 6.4 省略空字段
-
-建议不要输出：
-
-- 空字符串
-- 空数组
-- 空对象
-- 默认 false 的布尔字段
-
----
 
 ## 7. 推荐示例
 > ⚠️  *仅为本页面展示使用，与实际表记有较大出入。*
@@ -678,6 +704,6 @@ s24:12
 ## 约定规范
 - 普通 credit 行**不带** `*` 前缀；`*` 保留给以下特殊节点：
   - 作品起始处的委员会标题行（会填入 `metadata.committee_name`）
-  - Credit 区最后一行的动画制作公司（会填入 `metadata.production`）
-- 在 Credit 最后一行定义动画制作公司（非强制）
+  - Credit 区由`*`声明的动画制作公司（会填入 `metadata.production`）
+- 在 Credit 最后一行声明动画制作公司（非强制）
 - 禁止无意义地使用符号映射功能造成歧义。

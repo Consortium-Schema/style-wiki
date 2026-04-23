@@ -100,7 +100,7 @@ Work
 
 每部作品最终归纳出的制作 / 委员会成员公司列表。这是本项目的**主要产出**。字段名由 `production_mode` 决定：
 
-- `製作委員會` 模式 → `committee[]`，并在 `metadata.committee_name` 记录委员会标题
+- `製作委員会` 模式 → `committee[]`，并在 `metadata.committee_name` 记录委员会标题
 - 其他模式（`solo` / `製作/共同製作` / `Netflix Mode`） → `seisaku_company[]`
 
 每个成员公司记录：
@@ -108,11 +108,10 @@ Work
 | 字段 | 说明 |
 |------|------|
 | **company** | 成员公司（指向 Company 实体） |
-| **排列顺序** | credit 中的列名顺序（第一位通常是幹事社） |
 | **episodes** | 集数范围（默认 `"all"`；若成员资格仅限部分集数，如 前14话 / 15话之后） |
-| **from_role** | 布尔标记，表示该成员由 role 段间接派生（如 `Produced by：`），而非显式组织行 |
+| **from_role** | 布尔标记，表示该成员由特定role块间接派生（如`企画`）|
 
-> 早期规范曾包含 `window_rights`（窗口权）、`functions`（职能）等字段；当前解析器输出样本中尚未生成，相关数据可由 CreditEntry 归纳得出。
+- `committee`/`seisaku_company`的公司段排列顺序（包括`from_role`的遍历顺序）以表记侧的出现顺序为准。
 
 ### 2. Credit 条目（原始证据）
 
@@ -139,19 +138,17 @@ Credit 条目只记录 credit 上**实际写了什么**，不做推断。
 | **title** | 作品标题（多语言将在命名规范中展开） |
 | **type** | 作品类型：TV / 剧场版 / OVA / ONA / Special / Short |
 | **year / season** | TV 用，例如 `year="2026"`, `season="04"` |
-| **release_date** | 首播 / 上映日（电影、OVA 使用） |
+| **release_date** | 首播 / 上映日（电影、OVA 使用）,当填写了`DD`后默认type为剧场版。 |
 | **episodes_count** | 总集数 |
 | **unit_duration / total_duration** | 单集时长 / 总时长 |
-| **production** | 动画制作公司（studio），取自 Credit 区最后一行 |
+| **production** | 动画制作公司（studio），取自Credit区的特殊节点`*`行 |
 | **original_type / original_sources** | 原作类型与来源（`original_company`、可选 `original_label`） |
-| **committee_name** | 委员会原始日文名（仅 `製作委員會` 模式输出） |
-| **production_mode** | 制作模式枚举：`solo` / `製作委員會` / `製作/共同製作` / `Netflix Mode` |
-| **produced_by** | `Produced by X,Y` 指令行产生的数组 |
-| **co-produced_with** | `Co-produced with X` 指令行产生的字符串 |
-| **unlimited_produce_by** | `UNLIMITED PRODUCE by X` 指令行产生的字符串 |
-| **in_association_with** | `//In association with X` 注释行产生的字符串 |
-| **original_oncommittee** | 原作公司是否在 `committee` 中，仅委員會 模式且为 `true` 时输出 |
-| **original_onseisaku** | 原作公司是否在 `seisaku_company` 中，仅非委員會 模式且为 `true` 时输出 |
+| **committee_name** | 委员会原始日文名（仅 `製作委員会` 模式输出） |
+| **production_mode** | 制作模式枚举：`solo` / `製作委員会` / `製作/共同製作` / `Netflix Mode` |
+| **production_oncommitee**|动画制作公司是否在`committee`中，仅委員会 模式且 为 `true`时输出 |
+| **production_onseisaku**|动画制作公司四否在`seisaku_company`中，仅非委員会模式且为`true`时输出 |
+| **original_oncommittee** | 原作公司是否在 `committee` 中，仅委員会模式且为`true`时输出 |
+| **original_onseisaku** | 原作公司是否在 `seisaku_company` 中，仅非委員会模式且为`true`时输出 |
 
 ### 独立的参照实体
 
@@ -168,7 +165,7 @@ Credit 条目只记录 credit 上**实际写了什么**，不做推断。
 
 ```
 Work
-├── committee[] (委員會模式)  |  seisaku_company[] (其他模式)
+├── committee[] (委員会模式)  |  seisaku_company[] (其他模式)
 │   ├── → Company
 │   ├── episodes            集数范围（默认 "all"）
 │   └── from_role           由 role 段派生时标记
@@ -213,13 +210,13 @@ TV 动画按季度归类，季度代码格式为 `YYYYMM`：
 
 ## 规范文档索引
 
-状态：✅ 已完成 · 📋 规划中
+状态：✅ 已完成 · 📋 规划中 ·🖊 长期维护· 📓编写中
 
 | 文档 | 状态 | 内容 |
 |------|------|------|
 | [00-overview.md](00-overview.md) | ✅ | 本文——项目概述 |
-| [01-data-model.md](01-data-model.md) | ✅ | JSON 字段定义与 EBNF 语法 |
-| [02-transcription.md](02-transcription.md) | ✅ | 从 credit 到数据的转录规则（ASCH 格式） |
+| [01-data-model.md](01-data-model.md) | 🖊 | JSON 字段定义与 EBNF 语法 |
+| [02-transcription.md](02-transcription.md) | 🖊 | 从 credit 到数据的转录规则（ASCH 格式） |
 | 03-multilingual.md | 📋 | 多语言政策 |
 | 04-naming/ | 📋 | 命名规则（公司、人名、作品、职位） |
 | 05-role-taxonomy.md | 📋 | 职位分类体系 |

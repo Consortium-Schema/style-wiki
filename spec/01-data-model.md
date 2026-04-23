@@ -12,19 +12,19 @@
 
 一个 ASCH 文本最终通常会解析为多个作品条目。每个作品条目包含以下逻辑区域：
 
-- `metadata`：作品元数据
-- `committee` 或 `seisaku_company`：委员会 / 制作相关公司列表
-- `CreditEntry`：人员 credit 列表
+- `metadata` 区：作品元数据
+- `committee`或`seisaku_company` 区：委员会/制作相关公司列表
+- `CreditEntry` 区：人员 credit 列表
 
 字段分流由 `production_mode` 决定：
 
 | production_mode | 公司列表字段 | 原作归属字段 |
 |---|---|---|
-| `製作委員會` | `committee` | `original_oncommittee` |
+| `製作委員会` | `committee` | `original_oncommittee` |
 | `製作/共同製作` | `seisaku_company` | `original_onseisaku` |
 | `solo` | `seisaku_company` | `original_onseisaku` |
 | `Netflix Mode` | `seisaku_company` | `original_onseisaku` |
-
+- 若非`製作委員会`的情况下在`committee`区用`*`定义了`“committee_name”`，将输出`project_name`。
 
 
 ## 2. metadata 规范
@@ -39,35 +39,34 @@
 | `title` | 作品标题 |
 | `type` | 作品类型。默认为 `TV` |
 | `original_type` | 原作类型列表（数组），例如 `["漫画"]`。默认 `["漫画"]` |
-| `production_mode` | 制作模式。枚举值：`solo` / `製作委員會` / `製作/共同製作` / `Netflix Mode`。默认 `製作委員會` |
+| `production_mode` | 制作模式。枚举值：`solo` / `製作委員会` / `製作/共同製作` / `Netflix Mode`。默认 `製作委員会` |
 | `unit_duration` | 单集时长，例如 `"24min"` |
 | `episodes_count` | 集数 |
 | `total_duration` | 总时长，例如 `"04:48:00"` |
-| `committee_name` | 委员会名称。仅在 `production_mode = 製作委員會` 时出现 |
+| `committee_name` | 委员会名称。仅在 `production_mode = 製作委員会` 时出现 |
 | `production`     | 动画制作公司（读取 Credit 区最后一行自由文本） |
 | `produced_by` | Produced by 列表（数组）。由 `Produced by：` role 段触发时产生 |
-| `original_sources` | 原作来源信息（数组），每项含 `original_company`（出版社）、可选 `original_label`（发行 label） |
-| `original_oncommittee` | 原作方是否在 `committee` 内，仅 `製作委員會` 模式且为 `true` 时输出 |
-| `original_onseisaku` | 原作方是否在 `seisaku_company` 内，仅非委員會 模式且为 `true` 时输出 |
-| `in_association_with` | 协作方（由 `//In association with X` 注释行触发，值为 `X`） |
-| `co-produced_with` | 共同制作方（由 `*committee_name` 后的 `Co-produced with X` 行触发） |
-| `unlimited_produce_by` | UNLIMITED PRODUCE 委托方（由 role 段下的 `UNLIMITED PRODUCE by X` 行触发） |
+| `production_oncommitee`|动画制作公司是否在`committee`中，仅委員会 模式且 为 `true`时输出 |
+| `production_onseisaku`|动画制作公司是否在`seisaku_company`中，仅非委員会模式且为`true`时输出 |
+| `original_sources` | 原作来源信息（数组），每项含 `original_company`（出版社）、`original_label`（发行label)|
+| `original_oncommittee` | 原作方是否在 `committee` 内，仅 `製作委員会` 模式且为 `true` 时输出 |
 
 ---
 
 ### 2.2 committee_name 与字段分流
 
-当 `production_mode = "製作委員會"` 时：
+当 `production_mode = "製作委員会"` 时：
 
 - 使用 `committee`
 - 可输出 `committee_name`（取自以 `*` 开头的委员会标题行，如 `*淡島百景製作委員会`）
 - 可输出 `original_oncommittee`
 
-当 `production_mode != "製作委員會"`（`solo` / `製作/共同製作` / `Netflix Mode`）时：
+当 `production_mode != "製作委員会"`（`solo` / `製作/共同製作` / `Netflix Mode`）时：
 
 - 使用 `seisaku_company`
 - 不输出 `committee_name`
 - 可输出 `original_onseisaku`
+- 可输出 `project_name`（若用`*`声明）
 
 `original_oncommittee` / `original_onseisaku` 仅在为 `true` 时输出，不输出 `false`。
 
@@ -75,9 +74,9 @@
 
 ## 2.3 committee / seisaku_company 规范
 
-### 2.4 製作委員會 模式
+### 2.4 製作委員会 模式
 
-当 `production_mode = "製作委員會"` 时，`*` 开头的委员会标题行会填入 `committee_name`，其后的组织行解析为 `committee` 成员。
+当 `production_mode = "製作委員会"` 时，`*` 开头的委员会标题行会填入 `committee_name`，其后的组织行解析为 `committee` 成员。
 
 示例（ASCH 输入）：
 
@@ -103,7 +102,7 @@ BS富士
 
 ---
 
-### 2.5 非 製作委員會 模式（solo / 製作/共同製作 / Netflix Mode）
+### 2.5 非 製作委員会 模式（solo / 製作/共同製作 / Netflix Mode）
 
 示例：
 
@@ -124,7 +123,40 @@ BS富士
 |---|---|
 | `company` | 公司/组织名 |
 | `episodes` | 集数范围（默认 `"all"`） |
-| `from_role` | 布尔标记，表示该成员由 role 段（如 `Produced by：`）间接派生，而非显式的组织行 |
+| `from_role` | 布尔标记，表示该成员由特定role块间接派生（如`企画`） |
+|`window_rights`|窗口权，由`{}`声明。
+|`functions`|公司职能，由`[]`声明。
+
+
+### 2.7 by/with动态字段
+
+解析器内建了基于自然语言正则的嗅探引擎，能够拦截独立行中以`by`或`with`连接的动态字段，并将其自动归集至`metadata`区。
+- 嗅探正则：```r"^([^(){}\[\]\$\*]+?)\s+(by|with)\s+([^$「\(]+)(?:\s*[「(](.*)[」)])?$"```
+
+>动态字段嗅探支持集数后缀提取，且支持逗号分割的多实体提取。
+
+### 2.8 from_role
+
+当表记没有明确写出製作委員会或其他模式下的公司成员时，from_role会从以下role段抓取公司根据`production_mode`填充到`committee`/`seisaku_company`区
+- 製作委員会
+- 企劃/企画/企畫
+- 製作
+- 共同製作
+- Produce
+- 執行製片人/执行制片人
+- Executive Producer
+- ...
+
+#### from_role的遍历顺序
+- from_role的内部实现仅用于命中判断，不表示优先级。
+- 遍历顺序以表记侧CreditEntry的出现顺序为准
+- 同一公司重复出现时，后续只做合并，不重复插入（完美匹配）
+
+##### 非committee区声明的相关字段的清洗剥离
+当出现from_role为true的情况时，你只需在CreditEntry在人员行后面的（）声明[]{}即可无缝映射到committee区且不污染下游字段
+- [] 与【】会从原字段中剥离，并写入from_role.functions
+- {}与｛｝会从原字段中剥离，并写入from_role.window_rights
+
 
 ---
 
@@ -142,13 +174,13 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 高島祐一郎（講談社）「12-14话」->古川慎（講談社?）「14-24话」
 ```
 
-> `*` 前缀在 ASCH 中保留给**特殊节点**：委员会标题行（如 `*淡島百景製作委員会`）、或 Credit 区末尾的动画制作公司 / 无公司信息的 person 行。普通 credit 行不使用 `*`。
+> `*` 前缀在 ASCH 中保留给**特殊节点**：委员会标题行（如 `*淡島百景製作委員会`）、 Credit区的动画制作公司。普通credit行不使用`*`。
 
 ### 3.2 通用字段
 
 | 字段 | 含义 |
 |---|---|
-| `role` | 当前角色（由最近一个 `<role>` 行决定） |
+| `role` | 当前职位（由最近一个 `<role>` 行决定） |
 | `person` | 人名（`／` / `/` 分隔时取左侧） |
 | `person_realname` | 人员本名（`／` / `/` 分隔时取右侧，如 `ワンミシェル／Michelle Wang`） |
 | `company` | 公司 |
@@ -162,8 +194,7 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 | `affiliations` | 附属机构/马甲公司/二次派遣列表 |
 | `unverified` | 未查证。仅有 `person` 但无 `company` 时输出 `true` |
 | `tips` | 注释性补充（由 `//` 注释行在当前 role 下产生，内容为注释原文） |
-
-> 注：早期规范曾提及 `succession`（`->` 后继链）与 `person_id`（`#` 消歧义），当前解析器输出中暂未出现这些字段；若需使用请以 04-new.json 实际输出为准。
+|`succession`|继承链，由`->`声明，出现人员交替时使用。 |
 
 
 ##  📚开发者备忘录
@@ -172,20 +203,21 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 
 ###  语义约定与脚本聚合逻辑说明
 
+- `functions`、`department`、`role` 等字段均遵循“单值保留字符串，多值升级为数组”的输出策略。
 ####  production_mode 与输出字段
 
-- `production_mode = "製作委員會"` → 输出 `committee`
+- `production_mode = "製作委員会"` → 输出 `committee`
 - 其他值 → 输出 `seisaku_company`
 
 #### committee_name
 
-- 仅在 `production_mode = "製作委員會"` 时输出；
-- 非 委員會 模式不输出该字段。
+- 仅在 `production_mode = "製作委員会"` 时输出；
+- 非 委員会 模式不输出该字段。
 
 ####  原作归属字段
 
-- 委員會 模式：`original_oncommittee`
-- 非 委員會 模式：`original_onseisaku`
+- 委員会 模式：`original_oncommittee`
+- 非 委員会 模式：`original_onseisaku`
 - 仅在为 `true` 时输出。
 
 ####  省略空字段
@@ -197,9 +229,9 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 - 空对象
 - 默认 false 的布尔字段
 ####  在编写脚本处理JSON季度数据时，你的get_uid函数应该遵循以下优先级：
-*  主名优先(Identity-First)：如果person_id以id:开头，弱化该person署名，以该ID作为统计主键。
+*  主名优先(Identity-First)：如果当前字段区间存在`person_realname`字段，弱化`person`字段，以该字段作为统计主键。
 *  重名隔离(Discriminator-Second)：如果person_id以org:开头（或纯数字），则将person+person_id组合成一个唯一主键。
-*  默认处理:如果没有ID，则以person署名为准。
+*  默认处理:如果都没有，则以person署名为准。
 #### 括号优先级：
 * 姓名（A） → `company: A`
 * 姓名（A）（B） → `company: A, affiliations: [{company: B}]`（A 为 Primary，其后括号依次进入 `affiliations[]`）
@@ -227,7 +259,7 @@ credit 行为当前 role 下的成员行，通常是纯文本（不需要 `*` �
 7. 判断是否为类型行；
 8. 判断是否为 role 行；
 9. 判断是否为 credit 行；
-10. 按当前 `production_mode` 将组织行写入 `committee`（委員會 模式）或 `seisaku_company`（其他模式）。
+10. 按当前 `production_mode` 将组织行写入 `committee`（委員会 模式）或 `seisaku_company`（其他模式）。
 
 
 
