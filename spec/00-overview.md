@@ -91,27 +91,27 @@
 
 ```
 Work
-├── 1. 委员会（核心）—— 最终归纳的成员列表与职能分配
+├── 1. committee / seisaku_company（核心）—— 最终归纳的成员公司列表
 ├── 2. Credit 条目（证据）—— 从片尾 credit 逐条转录的原始记录
 └── 3. 作品信息（辅助）—— 类型、首播日、集数等，用于关联分析
 ```
 
-### 1. 委员会（核心数据）
+### 1. committee / seisaku_company（核心数据）
 
-每部作品最终归纳出的制作委员会成员列表。这是本项目的**主要产出**。
+每部作品最终归纳出的制作 / 委员会成员公司列表。这是本项目的**主要产出**。字段名由 `production_mode` 决定：
+
+- `製作委員会` 模式 → `committee[]`，并在 `metadata.committee_name` 记录委员会标题
+- 其他模式（`solo` / `製作/共同製作` / `Netflix Mode`） → `seisaku_company[]`
 
 每个成员公司记录：
 
 | 字段 | 说明 |
 |------|------|
-| **公司** | 成员公司（指向 Company 实体） |
-| **排列顺序** | credit 中的列名顺序（第一位通常是幹事社） |
-| **窗口权** | 该公司持有哪些权利窗口：碟片、海外、国内配信、商品化 等 |
-| **职能** | 该公司在委员会中承担的角色：企划、制作幹事、宣传、音乐 等 |
-| **集数范围** | 若成员资格仅限部分集数（如 前14话 / 15话之后） |
-| **确信度** | confirmed / probable / uncertain |
+| **company** | 成员公司（指向 Company 实体） |
+| **episodes** | 集数范围（默认 `"all"`；若成员资格仅限部分集数，如 前14话 / 15话之后） |
+| **from_role** | 布尔标记，表示该成员由特定role块间接派生（如`企画`）|
 
-这一层是对 credit 条目的**归纳结果**——同一家公司可能在 credit 中以多种职位出现（企划 + 制片人 + 海外授权），归纳后汇总为该公司的完整职能画像。
+- `committee`/`seisaku_company`的公司段排列顺序（包括`from_role`的遍历顺序）以表记侧的出现顺序为准。
 
 ### 2. Credit 条目（原始证据）
 
@@ -135,15 +135,20 @@ Credit 条目只记录 credit 上**实际写了什么**，不做推断。
 
 | 字段 | 说明 |
 |------|------|
-| **标题** | 多语言（ja / zh_hant / zh_hans / en） |
-| **类型** | TV / 剧场版 / OVA / ONA / Special / Short |
-| **季度** | TV 用，格式 `YYYYMM`（如 `202604`） |
-| **首播 / 上映日** | 日期 |
-| **集数** | 总集数 |
-| **动画制作** | 制作公司（studio） |
-| **原作** | 原作来源 |
-| **委员会日文名** | 原始委员会名称（如「鬼滅の刃」製作委員会） |
-| **制作模式** | 委员会制 / 单社制 / Project 型 / Netflix 关联 等 |
+| **title** | 作品标题（多语言将在命名规范中展开） |
+| **type** | 作品类型：TV / 剧场版 / OVA / ONA / Special / Short |
+| **year / season** | TV 用，例如 `year="2026"`, `season="04"` |
+| **release_date** | 首播 / 上映日（电影、OVA 使用）,当填写了`DD`后默认type为剧场版。 |
+| **episodes_count** | 总集数 |
+| **unit_duration / total_duration** | 单集时长 / 总时长 |
+| **production** | 动画制作公司（studio），取自Credit区的特殊节点`*`行 |
+| **original_type / original_sources** | 原作类型与来源（`original_company`、可选 `original_label`） |
+| **committee_name** | 委员会原始日文名（仅 `製作委員会` 模式输出） |
+| **production_mode** | 制作模式枚举：`solo` / `製作委員会` / `製作/共同製作` / `Netflix Mode` |
+| **production_oncommitee**|动画制作公司是否在`committee`中，仅委員会 模式且 为 `true`时输出 |
+| **production_onseisaku**|动画制作公司四否在`seisaku_company`中，仅非委員会模式且为`true`时输出 |
+| **original_oncommittee** | 原作公司是否在 `committee` 中，仅委員会模式且为`true`时输出 |
+| **original_onseisaku** | 原作公司是否在 `seisaku_company` 中，仅非委員会模式且为`true`时输出 |
 
 ### 独立的参照实体
 
@@ -160,19 +165,24 @@ Credit 条目只记录 credit 上**实际写了什么**，不做推断。
 
 ```
 Work
-├── Committee[]（核心）
+├── committee[] (委員会模式)  |  seisaku_company[] (其他模式)
 │   ├── → Company
-│   ├── window_rights[]     碟片 / 海外 / 配信 / 商品化 ...
-│   ├── functions[]         企划 / 幹事 / 宣传 / 音乐 ...
-│   └── episodes            集数范围
+│   ├── episodes            集数范围（默认 "all"）
+│   └── from_role           由 role 段派生时标记
 ├── CreditEntry[]（证据）
-│   ├── → Role
+│   ├── role                原始职位名
 │   ├── → Person (optional)
-│   ├── → Company / Department
+│   ├── → Company / Department / parent_company
+│   ├── affiliations[]      附属 / 马甲 / 二次派遣
+│   ├── former_company(_uncertain)   跳槽来源
+│   ├── unverified          仅有 person 无 company 时
+│   ├── tips                由 // 注释行在当前 role 下生成
 │   └── episodes            登场集数
 └── metadata（辅助）
-    ├── titles, format, season, premiere_date ...
-    └── production_model, committee_name_ja ...
+    ├── title, type, year, season, release_date ...
+    ├── production, original_sources ...
+    ├── produced_by, co-produced_with, unlimited_produce_by, in_association_with ...
+    └── production_mode, committee_name, original_oncommittee / original_onseisaku ...
 
 Company ←→ Company（改名 / 合并 / 母子公司）
 Company  → Department[]
@@ -200,13 +210,15 @@ TV 动画按季度归类，季度代码格式为 `YYYYMM`：
 
 ## 规范文档索引
 
-| 文档 | 内容 |
-|------|------|
-| [00-overview.md](00-overview.md) | 本文——项目概述 |
-| [01-data-model.md](01-data-model.md) | JSON Schema 定义与 ER 关系 |
-| [02-transcription.md](02-transcription.md) | 从 credit 到数据的转录规则 |
-| [03-multilingual.md](03-multilingual.md) | 多语言政策 |
-| [04-naming/](04-naming/) | 命名规则（公司、人名、作品、职位） |
-| [05-role-taxonomy.md](05-role-taxonomy.md) | 职位分类体系 |
-| [06-company-identity.md](06-company-identity.md) | 公司识别与历史变迁 |
-| [07-validation.md](07-validation.md) | 数据验证规则 |
+状态：✅ 已完成 · 📋 规划中 ·🖊 长期维护· 📓编写中
+
+| 文档 | 状态 | 内容 |
+|------|------|------|
+| [00-overview.md](00-overview.md) | ✅ | 本文——项目概述 |
+| [01-data-model.md](01-data-model.md) | 🖊 | JSON 字段定义与 EBNF 语法 |
+| [02-transcription.md](02-transcription.md) | 🖊 | 从 credit 到数据的转录规则（ASCH 格式） |
+| 03-multilingual.md | 📋 | 多语言政策 |
+| 04-naming/ | 📋 | 命名规则（公司、人名、作品、职位） |
+| 05-role-taxonomy.md | 📋 | 职位分类体系 |
+| 06-company-identity.md | 📋 | 公司识别与历史变迁 |
+| 07-validation.md | 📋 | 数据验证规则 |

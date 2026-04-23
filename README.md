@@ -17,31 +17,33 @@
 
 ## 文档结构
 
+状态标记：✅ 已完成 · 🚧 撰写中 · 📋 规划中
+
 ```
 style-wiki/
 ├── spec/                              # 核心规范
-│   ├── 00-overview.md                 # 项目概述、设计原则、收录范围
-│   ├── 01-data-model.md               # JSON Schema 定义与 ER 关系
-│   ├── 02-transcription.md            # 转录规则
-│   ├── 03-multilingual.md             # 多语言政策
-│   ├── 04-naming/                     # 命名规则
-│   │   ├── company.md                 #   公司命名
-│   │   ├── person.md                  #   人名
-│   │   ├── work-title.md              #   作品标题
-│   │   └── role.md                    #   职位名称
-│   ├── 05-role-taxonomy.md            # 职位分类体系
-│   ├── 06-company-identity.md         # 公司识别与历史变迁
-│   └── 07-validation.md               # 数据验证规则
-├── schema/                            # JSON Schema（机器可读）
-├── refs/                              # 参照数据（职位对照表、公司别名等）
-└── examples/                          # 数据文件示例
+│   ├── 00-overview.md                 ✅ 项目概述、设计原则、收录范围
+│   ├── 01-data-model.md               ✅ JSON 字段定义与 EBNF 语法
+│   ├── 02-transcription.md            ✅ ASCH 录入格式规范
+│   ├── 03-multilingual.md             📋 多语言政策
+│   ├── 04-naming/                     📋 命名规则
+│   │   ├── company.md                 📋   公司命名
+│   │   ├── person.md                  📋   人名
+│   │   ├── work-title.md              📋   作品标题
+│   │   └── role.md                    📋   职位名称
+│   ├── 05-role-taxonomy.md            📋 职位分类体系
+│   ├── 06-company-identity.md         📋 公司识别与历史变迁
+│   └── 07-validation.md               📋 数据验证规则
+├── schema/                            📋 JSON Schema（机器可读）
+├── refs/                              📋 参照数据（职位对照表、公司别名等）
+└── examples/                          📋 数据文件示例
 ```
 
 ## 快速入门
 
 - **了解项目**：阅读 [spec/00-overview.md](spec/00-overview.md)
-- **开始录入**：阅读 [spec/02-transcription.md](spec/02-transcription.md)（撰写中）
-- **查阅命名规则**：阅读 [spec/04-naming/](spec/04-naming/)（撰写中）
+- **开始录入**：阅读 [spec/02-transcription.md](spec/02-transcription.md)
+- **字段定义**：阅读 [spec/01-data-model.md](spec/01-data-model.md)
 
 ## 设计原则
 
